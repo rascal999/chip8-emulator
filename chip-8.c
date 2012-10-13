@@ -30,8 +30,17 @@ typedef struct {
    unsigned char key[16]; /* HEX based keypad (0x0-0xF) */
    int ROMfd; /* ROM fd */
    unsigned char ROM[4096]; /* Loaded ROM */
-   int drawFlag; /* Draw? */
+   int DrawFlag; /* Draw? */
 } Chip8;
+
+typedef struct {
+   SDL_Surface *screen;
+   SDL_Event event;
+   int keypress;
+   int x;
+   int y;
+   int c;
+} Display;  
 
 unsigned char chip8_fontset[80] =
 { 
@@ -118,12 +127,12 @@ void DrawScreen(SDL_Surface* screen, int x, int y, int c)
 int InitialiseScreen()
 {
     SDL_Surface *screen;
-    SDL_Event event;
+    /* SDL_Event event;
   
     int keypress = 0;
     int x = 63; 
     int y = 31;
-    int c = 0;
+    int c = 0; */
   
     if (SDL_Init(SDL_INIT_VIDEO) < 0 ) return 1;
    
@@ -156,9 +165,15 @@ int InitialiseScreen()
   
     return 0;
 }
+
+int UpdateGraphics(Chip8 *chip8, Display *display)
+{
+   
+   return 0;
+}
 /* END Screen functions */
 
-int InitScreen()
+int InitScreen(Display *display)
 {
    return 0;
 }
@@ -302,7 +317,7 @@ int EmulateCycle(Chip8 *chip8)
             }
          }
  
-         chip8->drawFlag = 1;
+         chip8->DrawFlag = 1;
 
          if (debug == 1) printf("Draw call %x\n",chip8->opcode);
          chip8->pc = chip8->pc + 2;
@@ -318,8 +333,8 @@ int EmulateCycle(Chip8 *chip8)
       break;
 
       case 0x7000:
-         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + chip8->opcode & 0x00FF;
-         if (debug == 1) printf("VX[%x] = %x\n", chip8->opcode & 0x00FF);
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF);
+         if (debug == 1) printf("VX[%x] = %x\n", chip8->opcode & 0x00FF,chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF));
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
@@ -418,15 +433,10 @@ FX65	Fills V0 to VX with values from memory starting at address I.[4] */
    return 0;
 }
 
-int UpdateGraphics(Chip8 *chip8)
-{
-   
-   return 0;
-}
-
 int main(int argc, char **argv)
 {
    Chip8 chip8;
+   Display display;
    int KeyValue = 0;
 
    /* 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
@@ -434,7 +444,7 @@ int main(int argc, char **argv)
       0x200-0xFFF - Program ROM and work RAM
    */
 
-   InitScreen();
+   InitScreen(&display);
    InitCPU(&chip8);
    Load("/home/user/c/chip-8/roms/pong.ch8", &chip8);
 
@@ -444,10 +454,10 @@ int main(int argc, char **argv)
       /* Fetch, decode, execute */
       EmulateCycle(&chip8);
 
-      if (chip8->DrawFlag)
+      if (chip8.DrawFlag)
       {
-         chip8->DrawFlag = 0;
-         UpdateGraphics(&chip8);
+         chip8.DrawFlag = 0;
+         UpdateGraphics(&chip8,&display);
       }
    }
 
