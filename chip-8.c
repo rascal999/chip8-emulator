@@ -86,53 +86,61 @@ int exiterror(int err)
 }
 
 /* Screen functions */
-void setpixel(SDL_Surface *screen, int x, int y, Uint8 r, Uint8 g, Uint8 b)
+void setpixel(Display display, int x, int y, Uint8 r, Uint8 g, Uint8 b)
 {
     Uint32 *pixmem32;
     Uint32 colour;  
  
-    colour = SDL_MapRGB( screen->format, r, g, b );
+    colour = SDL_MapRGB( display.screen->format, r, g, b );
   
-    pixmem32 = (Uint32*) screen->pixels  + y + x;
+    pixmem32 = (Uint32*) display.screen->pixels  + y + x;
     *pixmem32 = colour;
 }
 
-void DrawScreen(SDL_Surface* screen, int x, int y, int c)
-{ 
+/*void DrawScreen(SDL_Surface* screen, int x, int y, int c)*/
+void DrawScreen(Display display, int x, int y, int c)
+{
     int ytimesw;
     int blocky;
     int blockx;
     x = x * BLOCK;
     y = y * BLOCK;
-  
-    if(SDL_MUSTLOCK(screen)) 
+
+    if (c == 1)
     {
-        if(SDL_LockSurface(screen) < 0) return;
+       c = 255;
+    } else {
+       c = 0;
+    }
+  
+    if(SDL_MUSTLOCK(display.screen)) 
+    {
+        if(SDL_LockSurface(display.screen) < 0) return;
     }
 
     for(blocky=0;blocky<BLOCK;blocky++)
     {
-       ytimesw = y*screen->pitch/BPP;
+       ytimesw = y*display.screen->pitch/BPP;
        for(blockx=0;blockx<BLOCK;blockx++)
        {
-          setpixel(screen, blockx + x, (blocky*screen->pitch/BPP) + ytimesw, 255,255,255);
+          setpixel(display, blockx + x, (blocky*display.screen->pitch/BPP) + ytimesw, c,c,c);
        }
     }
 
-    if(SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+    if(SDL_MUSTLOCK(display.screen)) SDL_UnlockSurface(display.screen);
   
-    SDL_Flip(screen); 
+    SDL_Flip(display.screen); 
 }
 
-int InitialiseScreen()
+/*int InitialiseScreen()
 {
     SDL_Surface *screen;
-    /* SDL_Event event;
+     SDL_Event event;
   
     int keypress = 0;
     int x = 63; 
     int y = 31;
-    int c = 0; */
+    int c = 0; 
   
     if (SDL_Init(SDL_INIT_VIDEO) < 0 ) return 1;
    
@@ -142,7 +150,7 @@ int InitialiseScreen()
         return 1;
     }
   
-    /*while(1)
+    while(1)
     {
        DrawScreen(screen,x,y,c);
     }*/
@@ -160,23 +168,72 @@ int InitialiseScreen()
                        break;
               }
          }
-    }*/
+    }
     SDL_Quit();
   
     return 0;
-}
+}*/
 
-int UpdateGraphics(Chip8 *chip8, Display *display)
+int UpdateGraphics(Chip8 *chip8, Display display)
 {
-   
+   int x;
+   int y;
+
+   for(x=1;x<64;x++)
+   {
+      for(y=1;y<32;y++)
+      {
+         DrawScreen(display,x,y,chip8->gfx[x+y]);
+      }
+   }
+  
    return 0;
 }
+
+int InitScreen(Display * display)
+{
+    /*SDL_Surface *screen;
+    display->screen = screen;*/
+    /* SDL_Event event;
+  
+    int keypress = 0;
+    int x = 63; 
+    int y = 31;
+    int c = 0; */
+
+    if (SDL_Init(SDL_INIT_VIDEO) < 0 ) return 1;
+
+    if (!(display->screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_HWSURFACE)))
+    {
+        SDL_Quit();
+        return 1;
+    }
+
+    /*while(1)
+    {
+       DrawScreen(screen,x,y,c);
+    }*/
+    /*while(!keypress) 
+    {
+         while(SDL_PollEvent(&event)) 
+         {      
+              switch (event.type) 
+              {
+                  case SDL_QUIT:
+                      keypress = 1;
+                      break;
+                  case SDL_KEYDOWN:
+                       keypress = 1;
+                       break;
+              }
+         }
+    }*/
+    SDL_Quit();
+
+    return 0;
+}
+
 /* END Screen functions */
-
-int InitScreen(Display *display)
-{
-   return 0;
-}
 
 int InitCPU(Chip8 *chip8)
 {
@@ -253,11 +310,6 @@ int Load(char * ROM, Chip8 *chip8)
          i = i++;
       }
    }
-
-   /*printf("%x\n",chip8->memory[512]);
-   printf("%x\n",chip8->memory[513]);
-   printf("%x\n",chip8->memory[514]);
-   printf("%x\n",chip8->memory[515]);*/
 
    if (bufSizeRead == -1)
    {
@@ -433,10 +485,18 @@ FX65	Fills V0 to VX with values from memory starting at address I.[4] */
    return 0;
 }
 
-int main(int argc, char **argv)
-{
    Chip8 chip8;
    Display display;
+
+   SDL_Surface screen;
+   SDL_Surface *screenptr = &screen;
+   SDL_Event event;
+
+int main(int argc, char **argv)
+{
+   display.screen = screenptr;
+   display.event = event;
+
    int KeyValue = 0;
 
    /* 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
@@ -446,7 +506,7 @@ int main(int argc, char **argv)
 
    InitScreen(&display);
    InitCPU(&chip8);
-   Load("/home/user/c/chip-8/roms/pong.ch8", &chip8);
+   Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
 
    /* Emulation loop */
    while(KeyValue != 'q')
@@ -457,7 +517,7 @@ int main(int argc, char **argv)
       if (chip8.DrawFlag)
       {
          chip8.DrawFlag = 0;
-         UpdateGraphics(&chip8,&display);
+         UpdateGraphics(&chip8,display);
       }
    }
 
