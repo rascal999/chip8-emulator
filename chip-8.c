@@ -78,6 +78,14 @@ int exiterror(int err)
          printf("Error 20: Missing opcode\n");
          exit(20);
          break;
+      case 30:
+         printf("Error 30: Could not initialise screen\n");
+         exit(30);
+         break;
+      case 40:
+         printf("Error 40: Could not draw to screen\n");
+         exit(40);
+         break;
       default:
          printf("Error: Unknown error code\n");
          exit(1);
@@ -86,104 +94,69 @@ int exiterror(int err)
 }
 
 /* Screen functions */
-void setpixel(Display display, int x, int y, Uint8 r, Uint8 g, Uint8 b)
+void setpixel(Display * display, int x, int y, Uint8 r, Uint8 g, Uint8 b)
 {
     Uint32 *pixmem32;
     Uint32 colour;  
  
-    colour = SDL_MapRGB( display.screen->format, r, g, b );
+    colour = SDL_MapRGB( display->screen->format, r, g, b );
   
-    pixmem32 = (Uint32*) display.screen->pixels  + y + x;
+    pixmem32 = (Uint32*) display->screen->pixels  + y + x;
     *pixmem32 = colour;
 }
 
 /*void DrawScreen(SDL_Surface* screen, int x, int y, int c)*/
-void DrawScreen(Display display, int x, int y, int c)
+int DrawScreen(Display * display, int x, int y, int c)
 {
-    int ytimesw;
-    int blocky;
-    int blockx;
-    x = x * BLOCK;
-    y = y * BLOCK;
+   int ytimesw;
+   int blocky;
+   int blockx;
+   x = x * BLOCK;
+   y = y * BLOCK;
 
-    if (c == 1)
-    {
-       c = 255;
-    } else {
-       c = 0;
-    }
+   if (c == 1)
+   {
+      c = 128;
+   } else {
+      c = 0;
+   }
   
-    if(SDL_MUSTLOCK(display.screen)) 
-    {
-        if(SDL_LockSurface(display.screen) < 0) return;
-    }
+   if (SDL_MUSTLOCK(display->screen)) 
+   {
+      if(SDL_LockSurface(display->screen) < 0) return 1;
+   }
 
-    for(blocky=0;blocky<BLOCK;blocky++)
-    {
-       ytimesw = y*display.screen->pitch/BPP;
-       for(blockx=0;blockx<BLOCK;blockx++)
-       {
-          setpixel(display, blockx + x, (blocky*display.screen->pitch/BPP) + ytimesw, c,c,c);
-       }
-    }
+   for(blocky=0;blocky<BLOCK;blocky++)
+   {
+      ytimesw = y*display->screen->pitch/BPP;
+      for(blockx=0;blockx<BLOCK;blockx++)
+      {
+         setpixel(display, blockx + x, (blocky*(display->screen->pitch/BPP)) + ytimesw, c,c,c);
+      }
+   }
 
-    if(SDL_MUSTLOCK(display.screen)) SDL_UnlockSurface(display.screen);
+   if(SDL_MUSTLOCK(display->screen)) SDL_UnlockSurface(display->screen);
   
-    SDL_Flip(display.screen); 
+   SDL_Flip(display->screen); 
+
+   return 0;
 }
 
-/*int InitialiseScreen()
+int UpdateGraphics(Chip8 * chip8, Display * display)
 {
-    SDL_Surface *screen;
-     SDL_Event event;
-  
-    int keypress = 0;
-    int x = 63; 
-    int y = 31;
-    int c = 0; 
-  
-    if (SDL_Init(SDL_INIT_VIDEO) < 0 ) return 1;
-   
-    if (!(screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_HWSURFACE)))
-    {
-        SDL_Quit();
-        return 1;
-    }
-  
-    while(1)
-    {
-       DrawScreen(screen,x,y,c);
-    }*/
-    /*while(!keypress) 
-    {
-         while(SDL_PollEvent(&event)) 
-         {      
-              switch (event.type) 
-              {
-                  case SDL_QUIT:
-	              keypress = 1;
-	              break;
-                  case SDL_KEYDOWN:
-                       keypress = 1;
-                       break;
-              }
-         }
-    }
-    SDL_Quit();
-  
-    return 0;
-}*/
+   int i = 0;
+   int x, y;
 
-int UpdateGraphics(Chip8 *chip8, Display display)
-{
-   int x;
-   int y;
-
-   for(x=1;x<64;x++)
+   for(y=0;y<32;y++)
    {
-      for(y=1;y<32;y++)
+      for(x=0;x<64;x++)
       {
-         DrawScreen(display,x,y,chip8->gfx[x+y]);
+         //if (chip8->gfx[i-(64*y)] != 0 || chip8->gfx[(i-x)/64] != 0)
+         //{
+            DrawScreen(display,chip8->gfx[i-(64*y)],chip8->gfx[(i-x)/64],1);
+            //DrawScreen(display,x,y,1);
+         //}
+         i=i++;
       }
    }
   
@@ -192,15 +165,6 @@ int UpdateGraphics(Chip8 *chip8, Display display)
 
 int InitScreen(Display * display)
 {
-    /*SDL_Surface *screen;
-    display->screen = screen;*/
-    /* SDL_Event event;
-  
-    int keypress = 0;
-    int x = 63; 
-    int y = 31;
-    int c = 0; */
-
     if (SDL_Init(SDL_INIT_VIDEO) < 0 ) return 1;
 
     if (!(display->screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_HWSURFACE)))
@@ -208,27 +172,6 @@ int InitScreen(Display * display)
         SDL_Quit();
         return 1;
     }
-
-    /*while(1)
-    {
-       DrawScreen(screen,x,y,c);
-    }*/
-    /*while(!keypress) 
-    {
-         while(SDL_PollEvent(&event)) 
-         {      
-              switch (event.type) 
-              {
-                  case SDL_QUIT:
-                      keypress = 1;
-                      break;
-                  case SDL_KEYDOWN:
-                       keypress = 1;
-                       break;
-              }
-         }
-    }*/
-    SDL_Quit();
 
     return 0;
 }
@@ -238,6 +181,7 @@ int InitScreen(Display * display)
 int InitCPU(Chip8 *chip8)
 {
    int i;
+   int x, y;
 
    chip8->pc = 0x200;
    chip8->opcode = 0;
@@ -485,16 +429,21 @@ FX65	Fills V0 to VX with values from memory starting at address I.[4] */
    return 0;
 }
 
-   Chip8 chip8;
-   Display display;
-
-   SDL_Surface screen;
-   SDL_Surface *screenptr = &screen;
-   SDL_Event event;
-
 int main(int argc, char **argv)
 {
-   display.screen = screenptr;
+   /* Chip8 struct */
+   Chip8 chip8;
+
+   /* Display struct */
+   Display display;
+
+   /* Screen struct for Display */
+   SDL_Surface screen;
+
+   SDL_Event event;
+
+   /* Assign screen to screenptr */
+   display.screen = &screen;
    display.event = event;
 
    int KeyValue = 0;
@@ -504,7 +453,7 @@ int main(int argc, char **argv)
       0x200-0xFFF - Program ROM and work RAM
    */
 
-   InitScreen(&display);
+   if (InitScreen(&display) != 0) exiterror(30);
    InitCPU(&chip8);
    Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
 
@@ -517,7 +466,7 @@ int main(int argc, char **argv)
       if (chip8.DrawFlag)
       {
          chip8.DrawFlag = 0;
-         UpdateGraphics(&chip8,display);
+         UpdateGraphics(&chip8,&display);
       }
    }
 
