@@ -22,7 +22,7 @@ typedef struct {
    unsigned char V[16]; /* 16 registers V0 .. V15 */
    unsigned short I; /* Index register */
    unsigned short pc; /* Program counter */
-   unsigned char gfx[64*32]; /* Graphics */
+   unsigned char gfx[64][32]; /* Graphics */
    unsigned char delay_timer;
    unsigned char sound_timer;
    unsigned short stack[16]; /* Stacks stack0 .. stack15 */
@@ -147,7 +147,25 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
    int i = 0;
    int x, y;
 
-   for(y=0;y<32;y++)
+   for (y = 0; y < 32; y++)
+   {
+      //pixel = chip8->memory[chip8->I + yline];
+      for (x = 0; x < 64; x++)
+      {
+         //if((pixel & (0x80 >> xline)) != 0)
+         //{
+            if(chip8->gfx[x][y] == 1)
+            {
+               DrawScreen(display,x,y,1);
+//printf("x %d y %d\n",x,y);
+               //DrawScreen(display,x,y,1);
+            }
+            //chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
+            //printf("%d\n",x + xline + ((y + yline) * 64));
+         }
+      }
+
+/*   for(y=0;y<32;y++)
    {
       for(x=0;x<64;x++)
       {
@@ -158,7 +176,7 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
          //}
          i=i++;
       }
-   }
+   }*/
   
    return 0;
 }
@@ -195,9 +213,17 @@ int InitCPU(Chip8 *chip8)
    }
 
    /* Clear display */
-   for(i=0;i<64*32;i++)
+   /*for(i=0;i<64*32;i++)
    {
       chip8->gfx[i] = 0;
+   }*/
+
+   for (y=0;y<32;y++)
+   {
+      for (x=0;x<64;x++)
+      {
+         chip8->gfx[x][y] = 0;
+      }
    }
 
    /* Clear stack */
@@ -273,6 +299,8 @@ int EmulateCycle(Chip8 *chip8)
 
    unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
    unsigned short y = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+   unsigned short xcoord = 0;
+   unsigned short ycoord = 0;
    unsigned short height = chip8->opcode & 0x000F;
    unsigned short pixel;
 
@@ -283,21 +311,59 @@ int EmulateCycle(Chip8 *chip8)
 
    switch(chip8->opcode & 0xF000)
    {
-      case 0xA000:
-         chip8->I = chip8->opcode & 0x0FFF;
-         if (debug == 1) printf("I = %x\n", chip8->opcode & 0x0FFF);
+	   case 0xA000: /* Checked */
+		   chip8->I = chip8->opcode & 0x0FFF;
+		   if (debug == 1) printf("I = %x\n", chip8->opcode & 0x0FFF);
+		   chip8->pc = chip8->pc + 2;
+		   opfound = 1;
+		   break;
+
+	   case 0x6000: /* Checked */
+		   chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->opcode & 0x00FF;
+		   if (debug == 1) printf("V[%x] = %x\n", (chip8->opcode & 0x0F00) >> 8, chip8->opcode & 0x00FF);
+		   chip8->pc = chip8->pc + 2;
+		   opfound = 1;
+		   break;
+
+	   case 0xD000:
+		   chip8->V[0xF] = 0;
+
+		   for (i=0;i<height;i++)
+		   {
+                      pixel = chip8->memory[chip8->I + i];
+                      xcoord = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+                      ycoord = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
+usleep(100000);
+                      //printf("%x %d %d\n",chip8->opcode,xcoord,ycoord);
+                      if ((chip8->gfx[xcoord][ycoord+i] ^= 1) == 0) chip8->V[0xF] = 1; //pixel;
+                   }
+
+         /*for (int yline = 0; yline < height; yline++)
+         {
+            pixel = chip8->memory[chip8->I + yline];
+            for(int xline = 0; xline < 8; xline++)
+            {
+               if((pixel & (0x80 >> xline)) != 0)
+               {
+                  if(chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
+                  {
+                     chip8->V[0xF] = 1;
+                  }
+                  chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
+                  printf("%d\n",x + xline + ((y + yline) * 64));
+               }
+            }
+         }*/
+
+         chip8->DrawFlag = 1;
+
+         if (debug == 1) printf("Draw call %x\n",chip8->opcode);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
 
-      case 0x6000:
-         chip8->V[chip8->opcode & 0x0F00] = chip8->opcode & 0x00FF;
-         if (debug == 1) printf("V[%x] = %x\n", (chip8->opcode & 0x0F00) >> 8, chip8->opcode & 0x00FF);
-         chip8->pc = chip8->pc + 2;
-         opfound = 1;
-      break;
-
-      case 0xD000:
+      /*case 0xD000:
          chip8->V[0xF] = 0;
          for (int yline = 0; yline < height; yline++)
          {
@@ -307,8 +373,11 @@ int EmulateCycle(Chip8 *chip8)
                if((pixel & (0x80 >> xline)) != 0)
                {
                   if(chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
-                  chip8->V[0xF] = 1;                                 
+                  {
+                     chip8->V[0xF] = 1;
+                  }
                   chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
+                  printf("%d\n",x + xline + ((y + yline) * 64));
                }
             }
          }
@@ -318,9 +387,9 @@ int EmulateCycle(Chip8 *chip8)
          if (debug == 1) printf("Draw call %x\n",chip8->opcode);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
-      break;
+      break; */
 
-      case 0x2000:
+      case 0x2000: /* Checked */
          chip8->stack[chip8->sp] = chip8->pc;
          chip8->sp=chip8->sp++;
          chip8->pc = chip8->opcode & 0x0FFF;
@@ -328,7 +397,7 @@ int EmulateCycle(Chip8 *chip8)
          opfound = 1;
       break;
 
-      case 0x7000:
+      case 0x7000: /* Checked */
          chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF);
          if (debug == 1) printf("VX[%x] = %x\n", chip8->opcode & 0x00FF,chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF));
          chip8->pc = chip8->pc + 2;
@@ -345,6 +414,7 @@ int EmulateCycle(Chip8 *chip8)
          if (debug == 1) printf("Mem[%x] = %x\n",chip8->I, chip8->V[(chip8->opcode & 0x0F00) >> 8] / 100);
          if (debug == 1) printf("Mem[%x] = %x\n",chip8->I + 1, (chip8->V[(chip8->opcode & 0x0F00) >> 8] / 10) % 10);
          if (debug == 1) printf("Mem[%x] = %x\n",chip8->I + 2, (chip8->V[(chip8->opcode & 0x0F00) >> 8] / 10) % 1);
+         if (debug == 1) printf("I,I+1,I+2 = %d%d%d\n",chip8->memory[chip8->I],chip8->memory[chip8->I+1],chip8->memory[chip8->I+2]);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
@@ -353,7 +423,7 @@ int EmulateCycle(Chip8 *chip8)
          for(i=0;i<((chip8->opcode & 0x0F00) >> 8);i++)
          {
             chip8->V[i] = chip8->memory[chip8->I + i];
-            if (debug == 1) printf("V[%x] is %x\n",chip8->V[i],chip8->memory[chip8->I + i]);
+            if (debug == 1) printf("V[%x] is %x\n",i,chip8->memory[chip8->I + i]);
             chip8->pc = chip8->pc + 2;
             opfound = 1;
          }
