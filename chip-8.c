@@ -135,10 +135,6 @@ int DrawScreen(Display * display, int x, int y, int c)
       }
    }
 
-   if(SDL_MUSTLOCK(display->screen)) SDL_UnlockSurface(display->screen);
-  
-   SDL_Flip(display->screen); 
-
    return 0;
 }
 
@@ -151,6 +147,18 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
    {
       for (x = 0; x < 64; x++)
       {
+         DrawScreen(display,x,y,0);
+//printf("x %d y %d\n",x,y);
+       }
+    }
+
+   if(SDL_MUSTLOCK(display->screen)) SDL_UnlockSurface(display->screen);
+   SDL_Flip(display->screen);
+
+   for (y = 0; y < 32; y++)
+   {
+      for (x = 0; x < 64; x++)
+      {
             if(chip8->gfx[x][y] != 0)
             {
                DrawScreen(display,x,y,1);
@@ -158,6 +166,9 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
             }
        }
     }
+
+   if(SDL_MUSTLOCK(display->screen)) SDL_UnlockSurface(display->screen);
+   SDL_Flip(display->screen); 
 
    return 0;
 }
@@ -410,6 +421,12 @@ The interpreter generates a random number from 0 to 255, which is then ANDed wit
       break;
    }
 
+   if (opfound == 1)
+   {
+      DecrementTimers(chip8);
+      return 0;
+   } 
+
    switch(chip8->opcode & 0xF0FF)
    {
       case 0xF018:
@@ -503,6 +520,12 @@ Checks the keyboard, and if the key corresponding to the value of Vx is currentl
 
    }
 
+   if (opfound == 1)
+   {
+      DecrementTimers(chip8);
+      return 0;
+   } 
+
    switch(chip8->opcode & 0x00FF)
    {
       case 0x00EE:
@@ -513,6 +536,12 @@ Checks the keyboard, and if the key corresponding to the value of Vx is currentl
          opfound = 1;
       break;
    }
+
+   if (opfound == 1)
+   {
+      DecrementTimers(chip8);
+      return 0;
+   } 
 
    switch(chip8->opcode & 0xF00F)
    {
@@ -643,6 +672,21 @@ FX65	Fills V0 to VX with values from memory starting at address I.[4] */
    return 0;
 }
 
+int DecrementTimers(Chip8 * chip8)
+{
+   if(chip8->delay_timer > 0)
+   {
+      chip8->delay_timer=chip8->delay_timer - 1;
+   }
+
+   if(chip8->sound_timer > 0)
+   {
+      if(chip8->sound_timer == 1)
+      printf("BEEP!\n");
+      chip8->sound_timer=chip8->sound_timer - 1;
+   }
+}
+
 int main(int argc, char **argv)
 {
    /* Chip8 struct */
@@ -678,7 +722,7 @@ int main(int argc, char **argv)
       /* Fetch, decode, execute */
       EmulateCycle(&chip8);
       //DebugOutput(&chip8);
-      //usleep(500);
+      usleep(500);
 
       if (chip8.DrawFlag)
       {
