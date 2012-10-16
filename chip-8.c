@@ -203,10 +203,11 @@ int DebugOutput(Chip8 *chip8)
    int i;
 
    printf("------------------\n");
+
    printf("pc = %x\n",chip8->pc);
    printf("I = %x\n",chip8->I);
 
-   for(i=0;i<0xF;i++)
+   for(i=0;i<=0xF;i++)
    {
       printf("V[%x] = %x\n",i,chip8->V[i]);
    }
@@ -233,11 +234,6 @@ int InitCPU(Chip8 *chip8)
    }
 
    /* Clear display */
-   /*for(i=0;i<64*32;i++)
-   {
-      chip8->gfx[i] = 0;
-   }*/
-
    for (y=0;y<32;y++)
    {
       for (x=0;x<64;x++)
@@ -315,13 +311,13 @@ int EmulateCycle(Chip8 *chip8)
 {
    int opfound = 0;
    int debug = 1;
-   int i;
+   int i, x;
 
-   unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
-   unsigned short y = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+   //unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+   //unsigned short y = chip8->V[(chip8->opcode & 0x00F0) >> 4];
    unsigned short xcoord = 0;
    unsigned short ycoord = 0;
-   unsigned short height = chip8->opcode & 0x000F;
+   unsigned short height = 0;
    unsigned short pixel;
 
    /* Fetch */
@@ -352,16 +348,18 @@ int EmulateCycle(Chip8 *chip8)
 
 	   case 0xD000:
 		   chip8->V[0xF] = 0;
+                   height = chip8->opcode & 0x000F;
+                   xcoord = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+                   ycoord = chip8->V[(chip8->opcode & 0x00F0) >> 4];
 
 		   for (i=0;i<height;i++)
 		   {
                       pixel = chip8->memory[chip8->I + i];
+                      printf("sprite %x\n",pixel);
                       for (x=0;x<8;x++)
                       {
                          if ((pixel & (0x80 >> x)) != 0)
                          {
-                            xcoord = chip8->V[(chip8->opcode & 0x0F00) >> 8];
-                            ycoord = chip8->V[(chip8->opcode & 0x00F0) >> 4];
 printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
                             //printf("%x %d %d\n",chip8->opcode,xcoord,ycoord);
                             if (chip8->gfx[xcoord+x][ycoord+i] == 1) chip8->V[0xF] = 1;
@@ -474,7 +472,8 @@ printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
       break;
 
       case 0xF029:
-         chip8->I = chip8->memory[chip8->V[(chip8->opcode & 0x0F00) >> 8]] << 4;
+         //chip8->I = chip8->memory[chip8->V[(chip8->opcode & 0x0F00) >> 8]*5];
+         chip8->I = chip8->V[(chip8->opcode & 0x0F00) >> 8]*5;
          if (debug == 1) printf("I is %x\n",chip8->I);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
