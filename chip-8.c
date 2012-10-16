@@ -290,7 +290,7 @@ int EmulateCycle(Chip8 *chip8)
 {
    int opfound = 0;
    int debug = 0;
-   int i, x;
+   int i, x, tmp;
 
    unsigned short xcoord = 0;
    unsigned short ycoord = 0;
@@ -318,7 +318,7 @@ int EmulateCycle(Chip8 *chip8)
 
 
            case 0x4000:
-                   if (chip8->V[(chip8->opcode & 0x0F00) >> 8] != chip8->opcode & 0x00FF)
+                   if (chip8->V[(chip8->opcode & 0x0F00) >> 8] != (chip8->opcode & 0x00FF))
                    {
 		      chip8->pc = chip8->pc + 4;
                    } else {
@@ -334,8 +334,8 @@ int EmulateCycle(Chip8 *chip8)
 
            case 0xC000:
                    /* 5 should be a random number */
-                   chip8->V[(chip8->opcode & 0x0F00) >> 8] = 5 & (chip8->opcode & 0x00FF);
-                   if (debug == 1) printf("V[%x] = %x",(chip8->opcode & 0x0F00) >> 8,5 & (chip8->opcode & 0x00FF));
+                   chip8->V[(chip8->opcode & 0x0F00) >> 8] = 9 & (chip8->opcode & 0x00FF);
+                   if (debug == 1) printf("V[%x] = %x",(chip8->opcode & 0x0F00) >> 8,9 & (chip8->opcode & 0x00FF));
 		   chip8->pc = chip8->pc + 2;
 		   opfound = 1;
            break;
@@ -394,7 +394,7 @@ The interpreter generates a random number from 0 to 255, which is then ANDed wit
          {
             chip8->pc = chip8->pc + 4;
          } else {
-            chip8->pc = chip8->pc + 4;
+            chip8->pc = chip8->pc + 2;
          }
          opfound = 1;
          if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8]);
@@ -412,6 +412,15 @@ The interpreter generates a random number from 0 to 255, which is then ANDed wit
 
    switch(chip8->opcode & 0xF0FF)
    {
+      case 0xF018:
+         chip8->sound_timer = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+         if (debug == 1) printf("sound_timer = %x\n",chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+      /* FX18    Sets the sound timer to VX. */
+
       case 0xF033:
          chip8->memory[chip8->I] = chip8->V[(chip8->opcode & 0x0F00) >> 8] / 100;
          chip8->memory[chip8->I + 1] = (chip8->V[(chip8->opcode & 0x0F00) >> 8] / 10) % 10;
@@ -526,10 +535,14 @@ Checks the keyboard, and if the key corresponding to the value of Vx is currentl
 /* 8XY2    Sets VX to VX and VY. */
 
       case 0x8004:
+         tmp = chip8->V[(chip8->opcode & 0x0F00) >> 8];
          chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + chip8->V[(chip8->opcode & 0x00F0) >> 4];
-         if (chip8->V[(chip8->opcode & 0x0F00) >> 8] + chip8->V[(chip8->opcode & 0x00F0) >> 4] > 255)
+
+         if ((tmp + chip8->V[(chip8->opcode & 0x00F0) >> 4]) > 255)
          {
             chip8->V[0xF] = 1;
+         } else {
+            chip8->V[0xF] = 0;
          }
 
          if (debug == 1) printf("V[%x] = %x. V[F] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8],chip8->V[0xF]);
@@ -544,6 +557,29 @@ Set Vx = Vx + Vy, set VF = carry.
 The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx. */
 
 /* 8XY4    Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't. */
+
+      case 0x8005:
+         if (chip8->V[(chip8->opcode & 0x0F00) >> 8] > chip8->V[(chip8->opcode & 0x00F0) >> 4])
+         {
+            chip8->V[0xF] = 1;
+         } else {
+            chip8->V[0xF] = 0;
+         }
+
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] - chip8->V[(chip8->opcode & 0x00F0) >> 4];
+
+         if (debug == 1) printf("V[%x] = %x. V[0xF] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8],chip8->V[0xF]);
+
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* 8xy5 - SUB Vx, Vy
+Set Vx = Vx - Vy, set VF = NOT borrow.
+
+If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx. */
+
+/* 8XY5    VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't. */
 
    }
 

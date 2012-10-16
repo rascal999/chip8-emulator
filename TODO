@@ -1,7 +1,8 @@
 SHORT TERM
-- Work out why ball wraps in Pong
+- Clear screen of previous state
+- Get keys working
 - Format source?
 
 LONG TERM
 - Add remaining opcodes
-- Optimise switch statements in order. Biggest switch to smallest I think. Return if opfound == 1.
+- Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think. Return if opfound == 1.
