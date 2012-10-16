@@ -154,12 +154,14 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
       {
          //if((pixel & (0x80 >> xline)) != 0)
          //{
-            if(chip8->gfx[x][y] == 1)
+            if(chip8->gfx[x][y] != 0)
             {
                DrawScreen(display,x,y,1);
 //printf("x %d y %d\n",x,y);
                //DrawScreen(display,x,y,1);
-            }
+            } /*else {
+               DrawScreen(display,x,y,0);
+            } */
             //chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
             //printf("%d\n",x + xline + ((y + yline) * 64));
          }
@@ -195,6 +197,24 @@ int InitScreen(Display * display)
 }
 
 /* END Screen functions */
+
+int DebugOutput(Chip8 *chip8)
+{
+   int i;
+
+   printf("------------------\n");
+   printf("pc = %x\n",chip8->pc);
+   printf("I = %x\n",chip8->I);
+
+   for(i=0;i<0xF;i++)
+   {
+      printf("V[%x] = %x\n",i,chip8->V[i]);
+   }
+
+   printf("------------------\n");
+
+   return 0;
+}
 
 int InitCPU(Chip8 *chip8)
 {
@@ -277,7 +297,7 @@ int Load(char * ROM, Chip8 *chip8)
       for(k=0;k<bufSizeRead;k++)
       {             /* 0x200 */
          chip8->memory[512 + i] = buf[i];
-         i = i++;
+         i++;
       }
    }
 
@@ -294,7 +314,7 @@ int Load(char * ROM, Chip8 *chip8)
 int EmulateCycle(Chip8 *chip8)
 {
    int opfound = 0;
-   int debug = 0;
+   int debug = 1;
    int i;
 
    unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
@@ -311,6 +331,11 @@ int EmulateCycle(Chip8 *chip8)
 
    switch(chip8->opcode & 0xF000)
    {
+           case 0x1000:
+                   chip8->pc=chip8->opcode & 0x0FFF;
+                   if (debug == 1) printf("pc = %x\n",chip8->opcode & 0x0FFF);
+                   opfound = 1;
+           break;
 	   case 0xA000: /* Checked */
 		   chip8->I = chip8->opcode & 0x0FFF;
 		   if (debug == 1) printf("I = %x\n", chip8->opcode & 0x0FFF);
@@ -331,12 +356,18 @@ int EmulateCycle(Chip8 *chip8)
 		   for (i=0;i<height;i++)
 		   {
                       pixel = chip8->memory[chip8->I + i];
-                      xcoord = chip8->V[(chip8->opcode & 0x0F00) >> 8];
-                      ycoord = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+                      for (x=0;x<8;x++)
+                      {
+                         if ((pixel & (0x80 >> x)) != 0)
+                         {
+                            xcoord = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+                            ycoord = chip8->V[(chip8->opcode & 0x00F0) >> 4];
 printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
-usleep(100000);
-                      //printf("%x %d %d\n",chip8->opcode,xcoord,ycoord);
-                      if ((chip8->gfx[xcoord][ycoord+i] ^= 1) == 0) chip8->V[0xF] = 1; //pixel;
+                            //printf("%x %d %d\n",chip8->opcode,xcoord,ycoord);
+                            if (chip8->gfx[xcoord+x][ycoord+i] == 1) chip8->V[0xF] = 1;
+                            chip8->gfx[xcoord+x][ycoord+i] ^= 1;
+                         }
+                      }
                    }
 
          /*for (int yline = 0; yline < height; yline++)
@@ -391,15 +422,28 @@ usleep(100000);
 
       case 0x2000: /* Checked */
          chip8->stack[chip8->sp] = chip8->pc;
-         chip8->sp=chip8->sp++;
+         chip8->sp++;
          chip8->pc = chip8->opcode & 0x0FFF;
          if (debug == 1) printf("pc = %x\n", chip8->opcode & 0x0FFF);
          opfound = 1;
       break;
 
+      case 0x3000:
+         if (chip8->V[(chip8->opcode & 0x0F00) >> 8] == (chip8->opcode & 0x00FF))
+         {
+            chip8->pc = chip8->pc + 4;
+         } else {
+            chip8->pc = chip8->pc + 4;
+         }
+         opfound = 1;
+         if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+      break;
+
+/* 3XNN	Skips the next instruction if VX equals NN. */
+
       case 0x7000: /* Checked */
          chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF);
-         if (debug == 1) printf("VX[%x] = %x\n", chip8->opcode & 0x00FF,chip8->V[(chip8->opcode & 0x0F00) >> 8] + (chip8->opcode & 0x00FF));
+         if (debug == 1) printf("V[%x] = %x\n", (chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x00FF) >> 8] + (chip8->opcode & 0x00FF));
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
@@ -420,35 +464,72 @@ usleep(100000);
       break;
 
       case 0xF065:
-         for(i=0;i<((chip8->opcode & 0x0F00) >> 8);i++)
+         for(i=0;i<=((chip8->opcode & 0x0F00) >> 8);i++)
          {
             chip8->V[i] = chip8->memory[chip8->I + i];
             if (debug == 1) printf("V[%x] is %x\n",i,chip8->memory[chip8->I + i]);
-            chip8->pc = chip8->pc + 2;
             opfound = 1;
          }
+         chip8->pc = chip8->pc + 2;
       break;
 
       case 0xF029:
-         chip8->I = chip8->memory[chip8->V[(chip8->opcode & 0x0F00) >> 8]];
-         if (debug == 1) printf("I is %x\n",chip8->memory[chip8->V[(chip8->opcode & 0x0F00) >> 8]]);
+         chip8->I = chip8->memory[chip8->V[(chip8->opcode & 0x0F00) >> 8]] << 4;
+         if (debug == 1) printf("I is %x\n",chip8->I);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
 
 /* FX29	Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font. */
 
+      case 0xF055:
+         for(i=0;i<(chip8->opcode & 0x0F00) >> 8;i++)
+         {
+            unsigned short * ir = chip8->I+i;
+            ir=chip8->V[i];
+            if (debug == 1) printf("V[%x] = %x\n",i,chip8->I+i);
+         }
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+            
+/* FX55	Stores V0 to VX in memory starting at address I.[4] */
+
    }
 
    switch(chip8->opcode & 0x00FF)
    {
       case 0x00EE:
-      {
          chip8->sp=chip8->sp - 1;
          chip8->pc = chip8->stack[chip8->sp];
          if (debug == 1) printf("pc = %x\n", chip8->opcode & 0x0FFF);
+         chip8->pc = chip8->pc + 2;
          opfound = 1;
-      }
+      break;
+   }
+
+   switch(chip8->opcode & 0xF00F)
+   {
+      case 0x8000: /* 0x8XY0 */
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x00F0) >> 4];
+         if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+   }
+
+/* 8XY0	Sets VX to the value of VY. */
+
+   if(chip8->delay_timer > 0)
+   {
+      chip8->delay_timer=chip8->delay_timer - 1;
+   }
+ 
+   if(chip8->sound_timer > 0)
+   {
+      if(chip8->sound_timer == 1)
+      printf("BEEP!\n");
+      chip8->sound_timer=chip8->sound_timer - 1;
    }
 
    if (opfound == 0)
@@ -526,12 +607,15 @@ int main(int argc, char **argv)
    if (InitScreen(&display) != 0) exiterror(30);
    InitCPU(&chip8);
    Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
+   //Load("/home/user/git/chip8-emulator/roms/ttt.ch8", &chip8);
 
    /* Emulation loop */
    while(KeyValue != 'q')
    {
       /* Fetch, decode, execute */
       EmulateCycle(&chip8);
+      DebugOutput(&chip8);
+      usleep(300000);
 
       if (chip8.DrawFlag)
       {
