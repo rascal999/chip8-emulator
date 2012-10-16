@@ -149,37 +149,16 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
 
    for (y = 0; y < 32; y++)
    {
-      //pixel = chip8->memory[chip8->I + yline];
       for (x = 0; x < 64; x++)
       {
-         //if((pixel & (0x80 >> xline)) != 0)
-         //{
             if(chip8->gfx[x][y] != 0)
             {
                DrawScreen(display,x,y,1);
 //printf("x %d y %d\n",x,y);
-               //DrawScreen(display,x,y,1);
-            } /*else {
-               DrawScreen(display,x,y,0);
-            } */
-            //chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
-            //printf("%d\n",x + xline + ((y + yline) * 64));
-         }
-      }
+            }
+       }
+    }
 
-/*   for(y=0;y<32;y++)
-   {
-      for(x=0;x<64;x++)
-      {
-         //if (chip8->gfx[i-(64*y)] != 0 || chip8->gfx[(i-x)/64] != 0)
-         //{
-            DrawScreen(display,chip8->gfx[i-(64*y)],chip8->gfx[(i-x)/64],1);
-            //DrawScreen(display,x,y,1);
-         //}
-         i=i++;
-      }
-   }*/
-  
    return 0;
 }
 
@@ -310,11 +289,9 @@ int Load(char * ROM, Chip8 *chip8)
 int EmulateCycle(Chip8 *chip8)
 {
    int opfound = 0;
-   int debug = 1;
+   int debug = 0;
    int i, x;
 
-   //unsigned short x = chip8->V[(chip8->opcode & 0x0F00) >> 8];
-   //unsigned short y = chip8->V[(chip8->opcode & 0x00F0) >> 4];
    unsigned short xcoord = 0;
    unsigned short ycoord = 0;
    unsigned short height = 0;
@@ -337,7 +314,36 @@ int EmulateCycle(Chip8 *chip8)
 		   if (debug == 1) printf("I = %x\n", chip8->opcode & 0x0FFF);
 		   chip8->pc = chip8->pc + 2;
 		   opfound = 1;
-		   break;
+	   break;
+
+
+           case 0x4000:
+                   if (chip8->V[(chip8->opcode & 0x0F00) >> 8] != chip8->opcode & 0x00FF)
+                   {
+		      chip8->pc = chip8->pc + 4;
+                   } else {
+		      chip8->pc = chip8->pc + 2;
+                   }
+
+                   if (debug == 1) printf("pc = %x\n",chip8->pc);
+
+		   opfound = 1;
+	   break;
+                   
+/* 4XNN    Skips the next instruction if VX doesn't equal NN. */
+
+           case 0xC000:
+                   /* 5 should be a random number */
+                   chip8->V[(chip8->opcode & 0x0F00) >> 8] = 5 & (chip8->opcode & 0x00FF);
+                   if (debug == 1) printf("V[%x] = %x",(chip8->opcode & 0x0F00) >> 8,5 & (chip8->opcode & 0x00FF));
+		   chip8->pc = chip8->pc + 2;
+		   opfound = 1;
+           break;
+
+/* Cxkk - RND Vx, byte
+Set Vx = random byte AND kk.
+
+The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND. */
 
 	   case 0x6000: /* Checked */
 		   chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->opcode & 0x00FF;
@@ -355,12 +361,12 @@ int EmulateCycle(Chip8 *chip8)
 		   for (i=0;i<height;i++)
 		   {
                       pixel = chip8->memory[chip8->I + i];
-                      printf("sprite %x\n",pixel);
+                      //printf("sprite %x\n",pixel);
                       for (x=0;x<8;x++)
                       {
                          if ((pixel & (0x80 >> x)) != 0)
                          {
-printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
+//printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
                             //printf("%x %d %d\n",chip8->opcode,xcoord,ycoord);
                             if (chip8->gfx[xcoord+x][ycoord+i] == 1) chip8->V[0xF] = 1;
                             chip8->gfx[xcoord+x][ycoord+i] ^= 1;
@@ -368,55 +374,12 @@ printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
                       }
                    }
 
-         /*for (int yline = 0; yline < height; yline++)
-         {
-            pixel = chip8->memory[chip8->I + yline];
-            for(int xline = 0; xline < 8; xline++)
-            {
-               if((pixel & (0x80 >> xline)) != 0)
-               {
-                  if(chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
-                  {
-                     chip8->V[0xF] = 1;
-                  }
-                  chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
-                  printf("%d\n",x + xline + ((y + yline) * 64));
-               }
-            }
-         }*/
-
          chip8->DrawFlag = 1;
 
          if (debug == 1) printf("Draw call %x\n",chip8->opcode);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
-
-      /*case 0xD000:
-         chip8->V[0xF] = 0;
-         for (int yline = 0; yline < height; yline++)
-         {
-            pixel = chip8->memory[chip8->I + yline];
-            for(int xline = 0; xline < 8; xline++)
-            {
-               if((pixel & (0x80 >> xline)) != 0)
-               {
-                  if(chip8->gfx[(x + xline + ((y + yline) * 64))] == 1)
-                  {
-                     chip8->V[0xF] = 1;
-                  }
-                  chip8->gfx[x + xline + ((y + yline) * 64)] ^= 1;
-                  printf("%d\n",x + xline + ((y + yline) * 64));
-               }
-            }
-         }
- 
-         chip8->DrawFlag = 1;
-
-         if (debug == 1) printf("Draw call %x\n",chip8->opcode);
-         chip8->pc = chip8->pc + 2;
-         opfound = 1;
-      break; */
 
       case 0x2000: /* Checked */
          chip8->stack[chip8->sp] = chip8->pc;
@@ -460,6 +423,41 @@ printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
+
+      case 0xE0A1:
+         if (chip8->key[chip8->V[(chip8->opcode & 0x0F00) >> 8]] != 1)
+         {
+            chip8->pc = chip8->pc + 4;
+         } else {
+            chip8->pc = chip8->pc + 2;
+         }
+
+         if (debug == 1) printf("key[%x] = %x\n",chip8->V[(chip8->opcode & 0x0F00) >> 8],chip8->key[chip8->V[(chip8->opcode & 0x0F00) >> 8]]);
+         opfound = 1;
+      break;
+
+/* ExA1 - SKNP Vx
+Skip next instruction if key with the value of Vx is not pressed.
+
+Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2. */
+
+      case 0xF007:
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->delay_timer;
+         if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->delay_timer);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* FX07	Sets VX to the value of the delay timer. */
+
+      case 0xF015:
+         chip8->delay_timer = chip8->V[(chip8->opcode & 0x0F00) >> 8];
+         if (debug == 1) printf("delay_timer = %x\n",chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* FX15	Sets the delay timer to VX. */
 
       case 0xF065:
          for(i=0;i<=((chip8->opcode & 0x0F00) >> 8);i++)
@@ -515,9 +513,39 @@ printf("x %d y %d px %x\n",xcoord,ycoord,pixel);
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
-   }
 
 /* 8XY0	Sets VX to the value of VY. */
+
+      case 0x8002:
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] & chip8->V[(chip8->opcode & 0x00F0) >> 4];
+         if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+ 
+/* 8XY2    Sets VX to VX and VY. */
+
+      case 0x8004:
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] + chip8->V[(chip8->opcode & 0x00F0) >> 4];
+         if (chip8->V[(chip8->opcode & 0x0F00) >> 8] + chip8->V[(chip8->opcode & 0x00F0) >> 4] > 255)
+         {
+            chip8->V[0xF] = 1;
+         }
+
+         if (debug == 1) printf("V[%x] = %x. V[F] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8],chip8->V[0xF]);
+
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* 8xy4 - ADD Vx, Vy
+Set Vx = Vx + Vy, set VF = carry.
+
+The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx. */
+
+/* 8XY4    Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't. */
+
+   }
 
    if(chip8->delay_timer > 0)
    {
@@ -613,8 +641,8 @@ int main(int argc, char **argv)
    {
       /* Fetch, decode, execute */
       EmulateCycle(&chip8);
-      DebugOutput(&chip8);
-      usleep(300000);
+      //DebugOutput(&chip8);
+      //usleep(500);
 
       if (chip8.DrawFlag)
       {
