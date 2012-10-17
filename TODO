@@ -3,4 +3,5 @@ SHORT TERM
 - Add remaining opcodes
 
 LONG TERM
+- Fix key bindings. All over the place at the moment.
 - Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think. Return if opfound == 1.

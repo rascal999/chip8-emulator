@@ -138,7 +138,7 @@ int DrawScreen(Display * display, int x, int y, int c)
    return 0;
 }
 
-int UpdateGraphics(Chip8 * chip8, Display * display)
+int ClearDisplay(Display * display)
 {
    int i = 0;
    int x, y;
@@ -149,11 +149,21 @@ int UpdateGraphics(Chip8 * chip8, Display * display)
       {
          DrawScreen(display,x,y,0);
 //printf("x %d y %d\n",x,y);
-       }
-    }
+      }
+   }
 
    if(SDL_MUSTLOCK(display->screen)) SDL_UnlockSurface(display->screen);
    SDL_Flip(display->screen);
+
+   return 0;
+}
+
+int UpdateGraphics(Chip8 * chip8, Display * display)
+{
+   int i = 0;
+   int x, y;
+
+   ClearDisplay(display);
 
    for (y = 0; y < 32; y++)
    {
@@ -297,7 +307,7 @@ int Load(char * ROM, Chip8 *chip8)
    return 0;
 }
 
-int EmulateCycle(Chip8 *chip8)
+int EmulateCycle(Chip8 * chip8, Display * display)
 {
    int opfound = 0;
    int debug = 0;
@@ -429,6 +439,33 @@ The interpreter generates a random number from 0 to 255, which is then ANDed wit
 
    switch(chip8->opcode & 0xF0FF)
    {
+      case 0xF00A:
+         for(i=0;i<16;i++)
+         {
+            if (chip8->key[i] != 0)
+            {
+               chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->key[i];
+               chip8->pc = chip8->pc + 2;
+            }
+         }
+
+         opfound = 1;
+      break;
+
+      /* FX0A    A key press is awaited, and then stored in VX. */
+
+      case 0xF01E:
+         chip8->I = chip8->I + chip8->V[(chip8->opcode & 0x0F00) >> 8];
+         if (debug == 1) printf("I = %x\n",chip8->I);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+      /* Fx1E - ADD I, Vx
+      Set I = I + Vx.
+
+      The values of I and Vx are added, and the results are stored in I. */
+
       case 0xF018:
          chip8->sound_timer = chip8->V[(chip8->opcode & 0x0F00) >> 8];
          if (debug == 1) printf("sound_timer = %x\n",chip8->V[(chip8->opcode & 0x0F00) >> 8]);
@@ -449,6 +486,22 @@ The interpreter generates a random number from 0 to 255, which is then ANDed wit
          chip8->pc = chip8->pc + 2;
          opfound = 1;
       break;
+
+      case 0xE09E:
+         if (chip8->key[chip8->V[(chip8->opcode & 0x0F00) >> 8]] != 0)
+         {
+            chip8->pc = chip8->pc + 4;
+         } else {
+            chip8->pc = chip8->pc + 2;
+         }
+         if (debug == 1) printf("pc = %x\n",chip8->pc);
+         opfound = 1;
+      break;
+
+/* Ex9E - SKP Vx
+Skip next instruction if key with the value of Vx is pressed.
+
+Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position, PC is increased by 2. */
 
       case 0xE0A1:
          if (chip8->key[chip8->V[(chip8->opcode & 0x0F00) >> 8]] != 1)
@@ -528,6 +581,12 @@ Checks the keyboard, and if the key corresponding to the value of Vx is currentl
 
    switch(chip8->opcode & 0x00FF)
    {
+      case 0x00E0:
+         ClearDisplay(display);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
       case 0x00EE:
          chip8->sp=chip8->sp - 1;
          chip8->pc = chip8->stack[chip8->sp];
@@ -562,6 +621,18 @@ Checks the keyboard, and if the key corresponding to the value of Vx is currentl
       break;
  
 /* 8XY2    Sets VX to VX and VY. */
+
+      case 0x8003:
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] ^ chip8->V[(chip8->opcode & 0x00F0) >> 4];
+         if (debug == 1) printf("V[%x] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* 8xy3 - XOR Vx, Vy
+Set Vx = Vx XOR Vy.
+
+Performs a bitwise exclusive OR on the values of Vx and Vy, then stores the result in Vx. An exclusive OR compares the corrseponding bits from two values, and if the bits are not both the same, then the corresponding bit in the result is set to 1. Otherwise, it is 0. */
 
       case 0x8004:
          tmp = chip8->V[(chip8->opcode & 0x0F00) >> 8];
@@ -609,6 +680,41 @@ Set Vx = Vx - Vy, set VF = NOT borrow.
 If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx. */
 
 /* 8XY5    VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't. */
+
+      case 0x800E:
+         if ((chip8->V[(chip8->opcode & 0x0F00) >> 8] >> 8) == 1)
+         {
+            chip8->V[0xF] = 1;
+         } else {
+            chip8->V[0xF] = 0;
+         }
+         chip8->V[(chip8->opcode & 0x0F00) >> 8] = chip8->V[(chip8->opcode & 0x0F00) >> 8] * 2;
+
+         if (debug == 1) printf("V[%x] = %x. V[0xF] = %x\n",(chip8->opcode & 0x0F00) >> 8,chip8->V[(chip8->opcode & 0x0F00) >> 8],chip8->V[0xF]);
+         chip8->pc = chip8->pc + 2;
+         opfound = 1;
+      break;
+
+/* 8xyE - SHL Vx {, Vy}
+Set Vx = Vx SHL 1.
+
+If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2. */
+
+      case 0x9000:
+         if (chip8->V[(chip8->opcode & 0x0F00) >> 8] != chip8->V[(chip8->opcode & 0x00F0) >> 4])
+         {
+            chip8->pc = chip8->pc + 4;
+         } else {
+            chip8->pc = chip8->pc + 2;
+         }
+
+         if (debug == 1) printf("pc = %x\n",chip8->pc);
+
+         opfound = 1;
+      break;
+ 
+
+/* 9XY0    Skips the next instruction if VX doesn't equal VY. */
 
    }
 
@@ -682,7 +788,7 @@ int DecrementTimers(Chip8 * chip8)
    if(chip8->sound_timer > 0)
    {
       if(chip8->sound_timer == 1)
-      printf("BEEP!\n");
+      printf("Beep!\n");
       chip8->sound_timer=chip8->sound_timer - 1;
    }
 
@@ -716,8 +822,9 @@ int main(int argc, char **argv)
 
    if (InitScreen(&display) != 0) exiterror(30);
    InitCPU(&chip8);
-   Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
+   //Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
    //Load("/home/user/git/chip8-emulator/roms/ttt.ch8", &chip8);
+   Load("/home/user/git/chip8-emulator/roms/tetris.ch8", &chip8);
 
    while(quit != 1)
    {
@@ -738,7 +845,7 @@ int main(int argc, char **argv)
       }
 
       /* Fetch, decode, execute */
-      EmulateCycle(&chip8);
+      EmulateCycle(&chip8,&display);
       //DebugOutput(&chip8);
       usleep(500);
 
@@ -750,19 +857,6 @@ int main(int argc, char **argv)
 
       switch(event.key.keysym.sym)
       {
-/*
-
-Keypad                   Keyboard
-+-+-+-+-+                +-+-+-+-+
-|1|2|3|C|                |1|2|3|4|
-+-+-+-+-+                +-+-+-+-+
-|4|5|6|D|                |Q|W|E|R|
-+-+-+-+-+       =>       +-+-+-+-+
-|7|8|9|E|                |A|S|D|F|
-+-+-+-+-+                +-+-+-+-+
-|A|0|B|F|                |Z|X|C|V|
-+-+-+-+-+                +-+-+-+-+
-*/
           case SDLK_q:
              quit = 1;
           break;
@@ -840,6 +934,8 @@ Keypad                   Keyboard
           break;
       }
    }
+
+   SDL_QUIT;
 
    return 0;
 }
