@@ -1,8 +1,9 @@
 /*
-   * @fle    chip-8.c
+   * @file   chip-8.c
    * @brief  chip-8 emulator using SDL for output    
    *
-   * Based on chip-8, written for learning experience   
+   * Based on chip-8, written for learning experience
+   * and computing project.
    * @author Aidan Marlin     
    * @date   October 2012
 */
@@ -307,7 +308,7 @@ int Load(char * ROM, Chip8 *chip8)
    int k = 0;
    char buf[bufSize];
 
-   printf("Opening %s ...\n",ROM);
+   printf("Opening ROM ...\n");
 
    if ((chip8->ROMfd = open(ROM,O_RDONLY)) == 0)
    {
@@ -856,9 +857,6 @@ int main(int argc, char **argv)
    InitCPU(&chip8);
    if (argc == 2)
    {
-      //Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
-      //Load("/home/user/git/chip8-emulator/roms/ttt.ch8", &chip8);
-      //Load("/home/user/git/chip8-emulator/roms/tetris.ch8", &chip8);
       Load(argv[1],&chip8);
    } else {
       exiterror(4);
