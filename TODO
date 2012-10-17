@@ -1,7 +1,6 @@
 SHORT TERM
-- Get keys working
 - Format source?
+- Add remaining opcodes
 
 LONG TERM
-- Add remaining opcodes
 - Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think. Return if opfound == 1.
