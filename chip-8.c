@@ -685,6 +685,8 @@ int DecrementTimers(Chip8 * chip8)
       printf("BEEP!\n");
       chip8->sound_timer=chip8->sound_timer - 1;
    }
+
+   return 0;
 }
 
 int main(int argc, char **argv)
@@ -704,7 +706,8 @@ int main(int argc, char **argv)
    display.screen = &screen;
    display.event = event;
 
-   int KeyValue = 0;
+   int quit = 0;
+   int i = 0;
 
    /* 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
       0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
@@ -716,9 +719,24 @@ int main(int argc, char **argv)
    Load("/home/user/git/chip8-emulator/roms/pong.ch8", &chip8);
    //Load("/home/user/git/chip8-emulator/roms/ttt.ch8", &chip8);
 
-   /* Emulation loop */
-   while(KeyValue != 'q')
+   while(quit != 1)
    {
+      SDL_PollEvent(&event);
+      switch(event.type)
+      {
+         /* case SDL_KEYDOWN:
+            printf("key press\n");
+         break; */
+
+         case SDL_KEYUP:
+            for(i=0;i<16;i++)
+            {
+               chip8.key[i] = 0;
+            }
+            /* printf("key array clear\n"); */
+         break;
+      }
+
       /* Fetch, decode, execute */
       EmulateCycle(&chip8);
       //DebugOutput(&chip8);
@@ -728,6 +746,98 @@ int main(int argc, char **argv)
       {
          chip8.DrawFlag = 0;
          UpdateGraphics(&chip8,&display);
+      }
+
+      switch(event.key.keysym.sym)
+      {
+/*
+
+Keypad                   Keyboard
++-+-+-+-+                +-+-+-+-+
+|1|2|3|C|                |1|2|3|4|
++-+-+-+-+                +-+-+-+-+
+|4|5|6|D|                |Q|W|E|R|
++-+-+-+-+       =>       +-+-+-+-+
+|7|8|9|E|                |A|S|D|F|
++-+-+-+-+                +-+-+-+-+
+|A|0|B|F|                |Z|X|C|V|
++-+-+-+-+                +-+-+-+-+
+*/
+          case SDLK_q:
+             quit = 1;
+          break;
+
+          case SDLK_1:
+             chip8.key[0] = 1;
+          break;
+
+          case SDLK_2:
+             chip8.key[1] = 1;
+          break;
+
+          case SDLK_3:
+             chip8.key[2] = 1;
+          break;
+
+          case SDLK_4:
+             chip8.key[3] = 1;
+          break;
+
+          case SDLK_5:
+             chip8.key[4] = 1;
+          break;
+
+          case SDLK_6:
+             chip8.key[5] = 1;
+          break;
+
+          case SDLK_7:
+             chip8.key[6] = 1;
+          break;
+
+          case SDLK_8:
+             chip8.key[7] = 1;
+          break;
+
+          case SDLK_9:
+             chip8.key[8] = 1;
+          break;
+
+          case SDLK_a:
+             chip8.key[9] = 1;
+          break;
+
+          case SDLK_0:
+             chip8.key[10] = 1;
+          break;
+
+          case SDLK_b:
+             chip8.key[11] = 1;
+          break;
+
+          case SDLK_c:
+             chip8.key[12] = 1;
+          break;
+
+          case SDLK_d:
+             chip8.key[13] = 1;
+          break;
+
+          case SDLK_e:
+             chip8.key[14] = 1;
+          break;
+
+          case SDLK_f:
+             chip8.key[15] = 1;
+          break;
+
+          /* SDL_QUIT event (window close)
+          case SDL_QUIT:
+             quit = 1;
+          break; */
+
+          default:
+          break;
       }
    }
 
