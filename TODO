@@ -3,5 +3,10 @@ SHORT TERM
 - Make random function random
 
 LONG TERM
-- Fix key bindings. All over the place at the moment
-- Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think
+- Fix key bindings. All over the place at the moment.
+  May provide option to specify keyboard mapping file.
+
+- Optimise code. Specifically, switch statements in order.
+  Biggest switch to smallest I think.
+
+- Stop display flickering so much.

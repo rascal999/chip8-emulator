@@ -883,7 +883,7 @@ int main(int argc, char **argv)
       /* Fetch, decode, execute */
       EmulateCycle(&chip8,&display);
       //DebugOutput(&chip8);
-      usleep(500);
+      usleep(800);
 
       if (chip8.DrawFlag)
       {
@@ -905,7 +905,7 @@ int main(int argc, char **argv)
             chip8.key[1] = 1;
          break;
 
-         case SDLK_3:
+         case SDLK_DOWN:
             chip8.key[2] = 1;
          break;
 
@@ -913,15 +913,15 @@ int main(int argc, char **argv)
             chip8.key[3] = 1;
          break;
 
-         case SDLK_5:
+         case SDLK_LEFT:
             chip8.key[4] = 1;
          break;
 
-         case SDLK_6:
+         case SDLK_a:
             chip8.key[5] = 1;
          break;
 
-         case SDLK_7:
+         case SDLK_RIGHT:
             chip8.key[6] = 1;
          break;
 
@@ -929,11 +929,11 @@ int main(int argc, char **argv)
             chip8.key[7] = 1;
          break;
 
-         case SDLK_9:
+         case SDLK_UP:
             chip8.key[8] = 1;
          break;
 
-         case SDLK_a:
+         case SDLK_m:
             chip8.key[9] = 1;
          break;
 
