@@ -1,7 +1,7 @@
 SHORT TERM
-- Format source?
 - Add remaining opcodes
+- Make random function random
 
 LONG TERM
-- Fix key bindings. All over the place at the moment.
-- Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think. Return if opfound == 1.
+- Fix key bindings. All over the place at the moment
+- Optimise code. Specifically, switch statements in order. Biggest switch to smallest I think
